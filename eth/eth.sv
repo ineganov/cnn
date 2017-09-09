@@ -1,8 +1,8 @@
 module  eth (  input        clk,
                input        reset,
 
-               output       rx_data_vld,
-               output       rx_data_last,
+               output       rx_vld,
+               output       rx_last,
                output [7:0] rx_data,
 
                output       eth_resetn,
@@ -54,14 +54,14 @@ always_ff@(posedge clk)
       rmii_byte_sreg <= {eth_rxd_q, rmii_byte_sreg[7:2]};
 
 always_ff@(posedge clk)
-   if(reset | rx_data_last | rx_drop)
+   if(reset | rx_last | rx_drop)
       rmii_2bit_cnt <= '0;
    else if(eth_rx_sample & eth_dv_q)
       rmii_2bit_cnt <= rmii_2bit_cnt + 1'b1;
 
 assign rx_data = rmii_byte_sreg;
-assign rx_data_vld = eth_dv_qq & eth_rx_sample & (rmii_2bit_cnt == '0) & ~rx_st_drop_zeroes;
-assign rx_data_last  =  eth_dv_qq & ~eth_dv_q;
+assign rx_vld  = eth_dv_qq & eth_rx_sample & (rmii_2bit_cnt == '0) & ~rx_st_drop_zeroes;
+assign rx_last =  eth_dv_qq & ~eth_dv_q;
 
 assign eth_clk    = eth_clk_q;
 assign eth_resetn = ~reset;
