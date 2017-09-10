@@ -1,8 +1,9 @@
-read_verilog -sv toplevel.sv
-read_verilog -sv uart.sv
-read_verilog -sv eth.sv
-read_verilog -sv bin2char.sv
-read_verilog -sv minififo.sv
+read_verilog -sv ../toplevel/toplevel.sv
+read_verilog -sv ../uart/uart.sv
+read_verilog -sv ../eth/eth.sv
+read_verilog -sv ../eth/eth_fcs.sv
+read_verilog -sv ../util/bin2char.sv
+read_verilog -sv ../util/minififo.sv
 
 synth_design  -top toplevel -part xc7a100tcsg324-1
 create_clock -name clk -period 10 [get_ports clk]
@@ -10,6 +11,8 @@ create_clock -name clk -period 10 [get_ports clk]
 set_property -dict { PACKAGE_PIN E3    IOSTANDARD LVCMOS33 } [get_ports clk]
 
 set_property -dict { PACKAGE_PIN C12   IOSTANDARD LVCMOS33 } [get_ports resetn];
+
+set_property -dict { PACKAGE_PIN J15   IOSTANDARD LVCMOS33 } [get_ports sw]
 
 set_property -dict { PACKAGE_PIN H17   IOSTANDARD LVCMOS33 } [get_ports leds[0]  ]
 set_property -dict { PACKAGE_PIN K15   IOSTANDARD LVCMOS33 } [get_ports leds[1]  ]

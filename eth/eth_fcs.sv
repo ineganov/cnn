@@ -24,4 +24,6 @@ wire [31:0] sreg_inv = {fcs[0],  fcs[1],  fcs[2],  fcs[3],  fcs[4],  fcs[5],  fc
                         fcs[16], fcs[17], fcs[18], fcs[19], fcs[20], fcs[21], fcs[22], fcs[23], 
                         fcs[24], fcs[25], fcs[26], fcs[27], fcs[28], fcs[29], fcs[30], fcs[31] };
 
+wire [31:0] sreg_inv_inv = ~sreg_inv;
+
 endmodule

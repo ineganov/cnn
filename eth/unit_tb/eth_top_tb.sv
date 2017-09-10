@@ -6,6 +6,8 @@ logic       reset = 1;
 
 logic       rx_vld;
 logic       rx_last;
+logic       rx_err;
+logic       rx_crc_ok;
 logic [7:0] rx_data;
 
 logic       eth_resetn;
@@ -27,6 +29,16 @@ int msg_test[] = {8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
                   8'h06, 8'h07, 8'h08, 8'h09, 8'h0A, 8'h0B, 8'h0C, 8'h0D,
                   8'h0E, 8'h0F, 8'h10, 8'h11 }; // FCS: E6 C5 3D B2
 
+int msg_test_my[] = {8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
+                     8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'h98, 8'h5a,
+                     8'heb, 8'hdd, 8'h1c, 8'h64, 8'h08, 8'h06, 8'h00, 8'h01,
+                     8'h08, 8'h00, 8'h06, 8'h04, 8'h00, 8'h01, 8'h98, 8'h5a,
+                     8'heb, 8'hdd, 8'h1c, 8'h64, 8'hc0, 8'ha8, 8'h02, 8'h02,
+                     8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h9d, 8'h37,
+                     8'heb, 8'h91, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
+                     8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
+                     8'h00, 8'h00, 8'h00, 8'h00, 8'hf1, 8'hff, 8'h34, 8'h21 };
+
 int msg_simple[] = {8'ha1, 8'hb2, 8'hc3, 8'hd4, 8'he5 };
 
 
@@ -42,7 +54,7 @@ initial begin
 
    #40ns;
 
-   rmii_msg(msg_test);
+   rmii_msg(msg_test_my);
 
    #100ns;
 
