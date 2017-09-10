@@ -16,6 +16,7 @@ logic        rx_vld;
 logic        rx_last;
 logic        rx_err;
 logic        rx_crc_ok;
+logic        rx_busy;
 logic  [7:0] rx_data;
 logic [10:0] rx_addr;
 
@@ -76,6 +77,7 @@ initial begin
 
    @(negedge rx_vld) #1
    @(posedge clk) #1
+   @(posedge clk) #1
    @(posedge clk) tx_vld = 1'b1;
    @(posedge clk) tx_vld = 1'b0;
 
@@ -108,6 +110,7 @@ eth uut_loopback(  .clk        ( clk        ),
                    .rx_last    ( lp_last    ),
                    .rx_err     ( lp_rxerr   ),
                    .rx_crc_ok  ( lp_crcok   ),
+                   .rx_busy    (            ),
                    .rx_addr    (            ),
                    .rx_data    ( lp_rxdata  ),
                    .eth_resetn (            ),

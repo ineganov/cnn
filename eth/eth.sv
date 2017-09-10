@@ -12,6 +12,7 @@ module  eth (  input         clk,
                output        rx_last,
                output        rx_err,
                output        rx_crc_ok,
+               output        rx_busy,
                output [10:0] rx_addr,
                output  [7:0] rx_data,
 
@@ -127,6 +128,7 @@ assign rx_vld    = rmii_vld;
 assign rx_last   = rmii_vld & ~rx_state[RX_ST_DATA];
 assign rx_err    = rmii_err;
 assign rx_addr   = rmii_byte_cnt;
+assign rx_busy   = ~rx_state[RX_ST_IDLE];
 
 //-----------------------------------------------------------------------------------------------//
 
