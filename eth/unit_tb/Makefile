@@ -1,6 +1,8 @@
 top:
 	vlog eth_top_tb.sv
-	vlog ../eth_fcs.sv
+	vlog ../eth_tx_fcs.sv
+	vlog ../eth_rx_fcs.sv
+	vlog ../../util/miniram.sv
 	vlog ../eth.sv
 	vsim work.eth_top_tb -c -do "log -r /*; run -all"
 
