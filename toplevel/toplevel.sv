@@ -5,6 +5,9 @@ module toplevel ( input               clk,
                   output logic [15:0] leds,
                   input               sw,
 
+                  output        [7:0] seg7_an,
+                  output        [7:0] seg7_ca,
+
                   output              eth_resetn,
                   output logic        eth_clk,
                   output        [1:0] eth_txd,
@@ -94,24 +97,29 @@ always_ff@(posedge clk)
       uart_rx_char_b <= uart_rx_char_a;
    end
 
-logic [7:0] rx_cnt;
-logic [7:0] rx_cnt_err;
+logic [15:0] rx_cnt;
+logic [15:0] rx_cnt_err;
 
 always_ff@(posedge clk)
    if(~resetn)
       rx_cnt <= '0;
-   else if( eth_rx_vld & eth_rx_last & (rx_cnt != 8'hFF))
+   else if( eth_rx_vld & eth_rx_last & (rx_cnt != '1))
       rx_cnt <= rx_cnt + 1'b1;
 
 always_ff@(posedge clk)
    if(~resetn)
       rx_cnt_err <= '0;
-   else if( eth_rx_vld & eth_rx_last & ~eth_crc_ok & (rx_cnt_err != 8'hFF))
+   else if( eth_rx_vld & eth_rx_last & ~eth_crc_ok & (rx_cnt_err != '1))
       rx_cnt_err <= rx_cnt_err + 1'b1;
 
+seg7 seg7(  .clk   ( clk                  ),
+            .reset ( ~resetn              ),
+            .data  ( {rx_cnt_err, rx_cnt} ),
+            .an    ( seg7_an              ),
+            .ca    ( seg7_ca              ) );
 
-assign leds = sw ? { rx_cnt, rx_cnt_err} : {uart_rx_char_b, uart_rx_char_a};
 
+assign leds = sw ? { rx_cnt[7:0], rx_cnt_err[7:0]} : {uart_rx_char_b, uart_rx_char_a};
 
 assign uart_cts = 1'b1;
 

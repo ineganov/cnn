@@ -51,7 +51,7 @@ assign char_data =   ({8{char_byte_0_vld}} & char_byte_0) |
                      ({8{char_byte_1_vld}} & char_byte_1) |
                      ({8{ char_space_vld}} & char_space ) ;
 
- function [7:0] to_char(input [3:0] hex);
+function [7:0] to_char(input [3:0] hex);
    begin
       if(hex < 4'd10) to_char = hex + 8'h30;
       else            to_char = hex + 8'h61 - 8'd10;
