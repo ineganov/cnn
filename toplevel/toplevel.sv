@@ -21,40 +21,88 @@ module toplevel ( input               clk,
                   output              uart_cts );
 
 
-logic       eth_rx_vld, eth_rx_last, eth_crc_ok;
-logic [7:0] eth_rx_data;
+logic        tx_vld;
+logic        tx_adv;
+logic        tx_busy;
+logic        tx_last;
+logic [10:0] tx_count;
+logic [10:0] tx_addr;
+logic  [7:0] tx_data;
 
-logic       uart_tx_vld,  uart_rx_vld, uart_tx_busy;
-logic [7:0] uart_tx_data, uart_rx_data;
+logic        rx_vld;
+logic        rx_last;
+logic        rx_err;
+logic        rx_crc_ok;
+logic        rx_busy;
+logic  [7:0] rx_data;
+logic [10:0] rx_addr;
 
-logic       fifo_char_en, fifo_nempty, fifo_full;
-logic [7:0] fifo_char;
+logic        count_arp;
+
+logic        uart_tx_vld,  uart_rx_vld, uart_tx_busy;
+logic  [7:0] uart_tx_data, uart_rx_data;
+
+logic        fifo_char_en, fifo_nempty, fifo_full;
+logic  [7:0] fifo_char;
 
 assign uart_tx_vld = fifo_nempty & ~uart_tx_busy;
 
-eth eth (  .clk          ( clk         ),
-           .reset        ( ~resetn     ), 
 
-           .rx_vld       ( eth_rx_vld  ),        
-           .rx_last      ( eth_rx_last ),
-           .rx_err       (             ),
-           .rx_crc_ok    ( eth_crc_ok  ),
+eth eth (   .clk        ( clk        ),
+            .reset      ( ~resetn    ),
 
-           .rx_data      ( eth_rx_data ),    
-           .eth_resetn   ( eth_resetn  ),       
-           .eth_clk      ( eth_clk     ),    
-           .eth_txd      ( eth_txd     ),    
-           .eth_tx_en    ( eth_tx_en   ),      
-           .eth_rxd      ( eth_rxd     ),    
-           .eth_rx_err   ( eth_rx_err  ),       
-           .eth_crs_dv   ( eth_crs_dv  ) );       
+            .tx_vld     ( tx_vld     ),
+            .tx_count   ( tx_count   ),
+            .tx_addr    ( tx_addr    ),
+            .tx_adv     ( tx_adv     ),
+            .tx_busy    ( tx_busy    ),
+            .tx_last    ( tx_last    ),
+            .tx_data    ( tx_data    ),
+
+            .rx_vld     ( rx_vld     ),
+            .rx_last    ( rx_last    ),
+            .rx_err     ( rx_err     ),
+            .rx_crc_ok  ( rx_crc_ok  ),
+            .rx_busy    ( rx_busy    ),
+            .rx_addr    ( rx_addr    ),
+            .rx_data    ( rx_data    ),
+
+            .eth_resetn ( eth_resetn ),
+            .eth_clk    ( eth_clk    ),
+            .eth_txd    ( eth_txd    ),
+            .eth_tx_en  ( eth_tx_en  ),
+            .eth_rxd    ( eth_rxd    ),
+            .eth_rx_err ( eth_rx_err ),
+            .eth_crs_dv ( eth_crs_dv ) );
+
+arp_machine arp_machine( .clk       ( clk       ),
+                         .reset     ( ~resetn | sw   ),
+
+                     // MAC RX side
+                         .rx_vld    ( rx_vld    ),
+                         .rx_last   ( rx_last   ),
+                         .rx_err    ( 1'b0      ),
+                         .rx_crc_ok ( rx_crc_ok ),
+                         .rx_busy   ( rx_busy   ),
+                         .rx_addr   ( rx_addr   ),
+                         .rx_data   ( rx_data   ),
+
+                         .count_arp ( count_arp ),
+                     // MAC TX side
+                         .tx_vld    ( tx_vld   ),
+                         .tx_count  ( tx_count ),
+                         .tx_addr   ( tx_addr  ),
+                         .tx_adv    ( tx_adv   ),
+                         .tx_busy   ( tx_busy  ),
+                         .tx_last   ( tx_last  ),
+                         .tx_data   ( tx_data  ) );
 
 
 bin2char  bin2char( .clk       ( clk          ),
                     .reset     ( ~resetn      ),
-                    .bin_vld   ( eth_rx_vld   ),
-                    .bin_last  ( eth_rx_last  ), 
-                    .bin_data  ( eth_rx_data  ), 
+                    .bin_vld   ( tx_adv       ),
+                    .bin_last  ( tx_last      ), 
+                    .bin_data  ( tx_data      ), 
                     .char_vld  ( fifo_char_en ),
                     .char_data ( fifo_char    ) );
 
@@ -99,27 +147,34 @@ always_ff@(posedge clk)
 
 logic [15:0] rx_cnt;
 logic [15:0] rx_cnt_err;
+logic [15:0] rx_cnt_arp;
 
 always_ff@(posedge clk)
    if(~resetn)
       rx_cnt <= '0;
-   else if( eth_rx_vld & eth_rx_last & (rx_cnt != '1))
+   else if( rx_vld & rx_last & (rx_cnt != '1))
       rx_cnt <= rx_cnt + 1'b1;
 
 always_ff@(posedge clk)
    if(~resetn)
       rx_cnt_err <= '0;
-   else if( eth_rx_vld & eth_rx_last & ~eth_crc_ok & (rx_cnt_err != '1))
+   else if( rx_vld & rx_last & ~rx_crc_ok & (rx_cnt_err != '1))
       rx_cnt_err <= rx_cnt_err + 1'b1;
+
+always_ff@(posedge clk)
+   if(~resetn)
+      rx_cnt_arp <= '0;
+   else if( count_arp & (rx_cnt_arp != '1))
+      rx_cnt_arp <= rx_cnt_arp + 1'b1;
 
 seg7 seg7(  .clk   ( clk                  ),
             .reset ( ~resetn              ),
-            .data  ( {rx_cnt_err, rx_cnt} ),
+            .data  ( {rx_cnt_arp, rx_cnt} ),
             .an    ( seg7_an              ),
             .ca    ( seg7_ca              ) );
 
 
-assign leds = sw ? { rx_cnt[7:0], rx_cnt_err[7:0]} : {uart_rx_char_b, uart_rx_char_a};
+assign leds = {uart_rx_char_b, uart_rx_char_a};
 
 assign uart_cts = 1'b1;
 

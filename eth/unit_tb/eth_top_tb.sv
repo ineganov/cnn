@@ -8,6 +8,7 @@ logic        reset = 1;
 logic        tx_vld;
 logic        tx_adv;
 logic        tx_busy;
+logic        tx_last;
 logic [10:0] tx_count;
 logic [10:0] tx_addr;
 logic  [7:0] tx_data;
@@ -19,6 +20,8 @@ logic        rx_crc_ok;
 logic        rx_busy;
 logic  [7:0] rx_data;
 logic [10:0] rx_addr;
+
+logic        count_arp;
 
 logic        eth_resetn;
 logic        eth_clk;
@@ -39,15 +42,25 @@ int msg_test[] = {8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
                   8'h06, 8'h07, 8'h08, 8'h09, 8'h0A, 8'h0B, 8'h0C, 8'h0D,
                   8'h0E, 8'h0F, 8'h10, 8'h11 };
 
-int msg_test_my[] = {8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
-                     8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'h98, 8'h5a,
-                     8'heb, 8'hdd, 8'h1c, 8'h64, 8'h08, 8'h06, 8'h00, 8'h01,
-                     8'h08, 8'h00, 8'h06, 8'h04, 8'h00, 8'h01, 8'h98, 8'h5a,
-                     8'heb, 8'hdd, 8'h1c, 8'h64, 8'hc0, 8'ha8, 8'h02, 8'h02,
-                     8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h9d, 8'h37,
-                     8'heb, 8'h91, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
-                     8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
-                     8'h00, 8'h00, 8'h00, 8'h00, 8'hf1, 8'hff, 8'h34, 8'h21 };
+int msg_test_bad_ip[] = {  8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
+                           8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'h98, 8'h5a,
+                           8'heb, 8'hdd, 8'h1c, 8'h64, 8'h08, 8'h06, 8'h00, 8'h01,
+                           8'h08, 8'h00, 8'h06, 8'h04, 8'h00, 8'h01, 8'h98, 8'h5a,
+                           8'heb, 8'hdd, 8'h1c, 8'h64, 8'hc0, 8'ha8, 8'h02, 8'h02,
+                           8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h9d, 8'h37,
+                           8'heb, 8'h91, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
+                           8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
+                           8'h00, 8'h00, 8'h00, 8'h00, 8'hf1, 8'hff, 8'h34, 8'h21 };
+
+int msg_test_good_ip[] = { 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
+                           8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'hff, 8'h98, 8'h5a,
+                           8'heb, 8'hdd, 8'h1c, 8'h64, 8'h08, 8'h06, 8'h00, 8'h01,
+                           8'h08, 8'h00, 8'h06, 8'h04, 8'h00, 8'h01, 8'h98, 8'h5a,
+                           8'heb, 8'hdd, 8'h1c, 8'h64, 8'hc0, 8'ha8, 8'h02, 8'h02,
+                           8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h9d, 8'h37,
+                           8'heb, 8'h91, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
+                           8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
+                           8'h00, 8'h00, 8'h00, 8'h00, 8'hf1, 8'hff, 8'h34, 8'h21 };
 
 int msg_simple[] = { 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
                      8'ha1, 8'hb2, 8'hc3, 8'hd4, 8'he5,
@@ -61,26 +74,24 @@ initial begin
    eth_rx_err = 0;
    eth_rxd = 2'b00;
    eth_crs_dv = 0;
-   tx_vld = 1'b0;
    #20ns;
    @(posedge clk) reset = 0;
 
    #40ns;
 
-   // rmii_msg(msg_test_my);
-   // tx_count = 60;
+   rmii_msg(msg_simple);
+   #100ns;
+
+   rmii_msg(msg_test_my);
+   #100ns;
 
    rmii_msg(msg_simple);
-   tx_count = 5;
+   #100ns;
 
+   rmii_msg(msg_test_my);
+   #100ns;
    
-
-   @(negedge rx_vld) #1
-   @(posedge clk) #1
-   @(posedge clk) #1
-   @(posedge clk) tx_vld = 1'b1;
-   @(posedge clk) tx_vld = 1'b0;
-
+   #100ns;
    @(negedge tx_busy) #100ns;
 
    $finish;
@@ -105,6 +116,7 @@ eth uut_loopback(  .clk        ( clk        ),
                    .tx_addr    (            ),
                    .tx_adv     (            ),
                    .tx_busy    (            ),
+                   .tx_last    (            ),
                    .tx_data    ( 8'h0       ),
                    .rx_vld     ( lp_rxvalid ),
                    .rx_last    ( lp_last    ),
@@ -127,7 +139,7 @@ always@(posedge clk)
       else        $write("%02x ",                 lp_rxdata);
 
 
-
+/*
 miniram #( .D (11),   
            .W (8 ) )
 miniram  ( .clk   ( clk               ),
@@ -136,7 +148,30 @@ miniram  ( .clk   ( clk               ),
            .addr  ( tx_busy ? tx_addr : rx_addr ),
            .wdata ( rx_data           ),
            .rdata ( tx_data           ));
+*/
 
+arp_machine arp_machine( .clk       ( clk       ),
+                         .reset     ( reset     ),
+
+                     // MAC RX side
+                         .rx_vld    ( rx_vld    ),
+                         .rx_last   ( rx_last   ),
+                         .rx_err    ( rx_err    ),
+                         .rx_crc_ok ( rx_crc_ok ),
+                         .rx_busy   ( rx_busy   ),
+                         .rx_addr   ( rx_addr   ),
+                         .rx_data   ( rx_data   ),
+
+                         .count_arp ( count_arp ),
+
+                     // MAC TX side
+                         .tx_vld    ( tx_vld   ),
+                         .tx_count  ( tx_count ),
+                         .tx_addr   ( tx_addr  ),
+                         .tx_adv    ( tx_adv   ),
+                         .tx_busy   ( tx_busy  ),
+                         .tx_last   ( tx_last  ),
+                         .tx_data   ( tx_data  ) );
 
 // -------------------------------------------------//
 

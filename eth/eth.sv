@@ -6,6 +6,7 @@ module  eth (  input         clk,
                output [10:0] tx_addr,
                output        tx_adv,
                output        tx_busy,
+               output        tx_last,
                input   [7:0] tx_data,
 
                output        rx_vld,
@@ -200,7 +201,7 @@ wire       tx_crc_datain = sample ? tx_nibble[1] : tx_nibble[0];
 wire [1:0] tx_crc_out;
 
 eth_tx_fcs eth_tx_fcs(  .clk     ( clk                           ),
-                        .reset   ( reset                         ),
+                        .reset   ( reset | tx_state[TX_ST_IDLE]  ),
                         .en      ( tx_state[TX_ST_DATA]          ),
                         .adv     ( tx_state[TX_ST_CRC ] & sample ),
                         .data_in ( tx_crc_datain                 ),
@@ -216,6 +217,7 @@ assign tx_txd_next = ({2{tx_state[TX_ST_PRMBL]}} &       2'b01 ) |
 assign tx_adv  = tx_sample_byte;
 assign tx_addr = tx_byte_cnt;
 assign tx_busy = ~tx_state[TX_ST_IDLE] | tx_vld_d1;
+assign tx_last = tx_nextst[TX_ST_CRC];
 
 assign eth_clk    = eth_clk_q;
 assign eth_resetn = ~reset;
