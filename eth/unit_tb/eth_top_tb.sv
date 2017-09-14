@@ -31,6 +31,13 @@ logic  [1:0] eth_rxd;
 logic        eth_rx_err;
 logic        eth_crs_dv;
 
+logic        rx_udp_dvld;
+logic [31:0] rx_udp_data;
+
+
+int msg_simple[] = { 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
+                     8'ha1, 8'hb2, 8'hc3, 8'hd4, 8'he5,
+                     8'hdf, 8'hf9, 8'hc3, 8'h9a };
 
 int msg_test[] = {8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
                   8'h00, 8'h10, 8'hA4, 8'h7B, 8'hEA, 8'h80, 8'h00, 8'h12, 
@@ -57,14 +64,20 @@ int msg_test_good_ip[] = { 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd
                            8'heb, 8'hdd, 8'h1c, 8'h64, 8'h08, 8'h06, 8'h00, 8'h01,
                            8'h08, 8'h00, 8'h06, 8'h04, 8'h00, 8'h01, 8'h98, 8'h5a,
                            8'heb, 8'hdd, 8'h1c, 8'h64, 8'hc0, 8'ha8, 8'h02, 8'h02,
-                           8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h9d, 8'h37,
-                           8'heb, 8'h91, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
+                           8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'hc0, 8'ha8,
+                           8'h02, 8'h05, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
                            8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00, 8'h00,
-                           8'h00, 8'h00, 8'h00, 8'h00, 8'hf1, 8'hff, 8'h34, 8'h21 };
+                           8'h00, 8'h00, 8'h00, 8'h00, 8'hab, 8'hf4, 8'h77, 8'h59 };
 
-int msg_simple[] = { 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
-                     8'ha1, 8'hb2, 8'hc3, 8'hd4, 8'he5,
-                     8'hdf, 8'hf9, 8'hc3, 8'h9a };
+int msg_test_udp[]     = { 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'h55, 8'hd5,
+                           8'h98, 8'h5a, 8'heb, 8'hdd, 8'h1c, 8'h65, 8'hac, 8'hbc,
+                           8'h32, 8'h9f, 8'h44, 8'h23, 8'h08, 8'h00, 8'h45, 8'h00,
+                           8'h00, 8'h21, 8'he0, 8'ha3, 8'h00, 8'h00, 8'h40, 8'h11,
+                           8'h16, 8'h8b, 8'hc0, 8'ha8, 8'h01, 8'h4c, 8'hc0, 8'ha8,
+                           8'h02, 8'h05, 8'hea, 8'h83, 8'h4e, 8'h50, 8'h00, 8'h0d,
+                           8'h3a, 8'h5c, 8'h01, 8'h02, 8'h03, 8'h04, 8'h05, 8'he0,
+                           8'hb9, 8'h1e, 8'he9 };
+
 
 
 
@@ -82,13 +95,13 @@ initial begin
    rmii_msg(msg_simple);
    #100ns;
 
-   rmii_msg(msg_test_my);
+   rmii_msg(msg_test_bad_ip);
    #100ns;
 
-   rmii_msg(msg_simple);
+   rmii_msg(msg_test_good_ip);
    #100ns;
 
-   rmii_msg(msg_test_my);
+   rmii_msg(msg_test_udp);
    #100ns;
    
    #100ns;
@@ -139,16 +152,6 @@ always@(posedge clk)
       else        $write("%02x ",                 lp_rxdata);
 
 
-/*
-miniram #( .D (11),   
-           .W (8 ) )
-miniram  ( .clk   ( clk               ),
-           .re    ( tx_adv            ),
-           .we    ( rx_vld            ),
-           .addr  ( tx_busy ? tx_addr : rx_addr ),
-           .wdata ( rx_data           ),
-           .rdata ( tx_data           ));
-*/
 
 arp_machine arp_machine( .clk       ( clk       ),
                          .reset     ( reset     ),
@@ -172,6 +175,21 @@ arp_machine arp_machine( .clk       ( clk       ),
                          .tx_busy   ( tx_busy  ),
                          .tx_last   ( tx_last  ),
                          .tx_data   ( tx_data  ) );
+
+udp_machine udp_machine( .clk         ( clk         ),
+                         .reset       ( reset       ),
+
+                     // MAC RX side
+                         .rx_vld      ( rx_vld      ),
+                         .rx_last     ( rx_last     ),
+                         .rx_err      ( rx_err      ),
+                         .rx_crc_ok   ( rx_crc_ok   ),
+                         .rx_busy     ( rx_busy     ),
+                         .rx_addr     ( rx_addr     ),
+                         .rx_data     ( rx_data     ),
+
+                         .rx_udp_dvld ( rx_udp_dvld ),
+                         .rx_udp_data ( rx_udp_data ) );
 
 // -------------------------------------------------//
 

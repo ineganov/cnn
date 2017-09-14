@@ -2,6 +2,7 @@ read_verilog -sv ../toplevel/toplevel.sv
 read_verilog -sv ../uart/uart.sv
 read_verilog -sv ../eth/eth.sv
 read_verilog -sv ../eth/arp_machine.sv
+read_verilog -sv ../eth/udp_machine.sv
 read_verilog -sv ../eth/eth_rx_fcs.sv
 read_verilog -sv ../eth/eth_tx_fcs.sv
 read_verilog -sv ../util/bin2char.sv

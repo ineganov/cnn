@@ -45,6 +45,9 @@ logic  [7:0] uart_tx_data, uart_rx_data;
 logic        fifo_char_en, fifo_nempty, fifo_full;
 logic  [7:0] fifo_char;
 
+logic        rx_udp_dvld;
+logic [31:0] rx_udp_data, rx_udp_data_q;
+
 assign uart_tx_vld = fifo_nempty & ~uart_tx_busy;
 
 
@@ -76,12 +79,12 @@ eth eth (   .clk        ( clk        ),
             .eth_crs_dv ( eth_crs_dv ) );
 
 arp_machine arp_machine( .clk       ( clk       ),
-                         .reset     ( ~resetn | sw   ),
+                         .reset     ( ~resetn   ),
 
                      // MAC RX side
                          .rx_vld    ( rx_vld    ),
                          .rx_last   ( rx_last   ),
-                         .rx_err    ( 1'b0      ),
+                         .rx_err    ( rx_err    ),
                          .rx_crc_ok ( rx_crc_ok ),
                          .rx_busy   ( rx_busy   ),
                          .rx_addr   ( rx_addr   ),
@@ -97,6 +100,21 @@ arp_machine arp_machine( .clk       ( clk       ),
                          .tx_last   ( tx_last  ),
                          .tx_data   ( tx_data  ) );
 
+
+udp_machine udp_machine( .clk       ( clk       ),
+                         .reset     ( ~resetn   ),
+
+                     // MAC RX side
+                         .rx_vld    ( rx_vld    ),
+                         .rx_last   ( rx_last   ),
+                         .rx_err    ( rx_err    ),
+                         .rx_crc_ok ( rx_crc_ok ),
+                         .rx_busy   ( rx_busy   ),
+                         .rx_addr   ( rx_addr   ),
+                         .rx_data   ( rx_data   ),
+
+                         .rx_udp_dvld ( rx_udp_dvld ),
+                         .rx_udp_data ( rx_udp_data ) );
 
 bin2char  bin2char( .clk       ( clk          ),
                     .reset     ( ~resetn      ),
@@ -167,9 +185,17 @@ always_ff@(posedge clk)
    else if( count_arp & (rx_cnt_arp != '1))
       rx_cnt_arp <= rx_cnt_arp + 1'b1;
 
+
+always_ff@(posedge clk)
+   if(rx_udp_dvld)
+      rx_udp_data_q <= rx_udp_data;
+
+
+wire [31:0] seg7_in = sw ? rx_udp_data_q : {rx_cnt_arp, rx_cnt};
+
 seg7 seg7(  .clk   ( clk                  ),
             .reset ( ~resetn              ),
-            .data  ( {rx_cnt_arp, rx_cnt} ),
+            .data  ( seg7_in              ),
             .an    ( seg7_an              ),
             .ca    ( seg7_ca              ) );
 
