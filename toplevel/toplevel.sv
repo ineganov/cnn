@@ -4,6 +4,7 @@ module toplevel ( input               clk,
                   output        [7:0] pmod_a,
                   output logic [15:0] leds,
                   input               sw,
+                  input               btn_ok,
 
                   output        [7:0] seg7_an,
                   output        [7:0] seg7_ca,
@@ -37,7 +38,13 @@ logic        rx_busy;
 logic  [7:0] rx_data;
 logic [10:0] rx_addr;
 
-logic        count_arp;
+
+logic        udp_tx_req,   arp_tx_req;
+logic        udp_tx_grant, arp_tx_grant;
+logic [10:0] udp_tx_count, arp_tx_count;
+logic  [7:0] udp_tx_data,  arp_tx_data;
+
+logic        count_arp, btn_ok_deb;
 
 logic        uart_tx_vld,  uart_rx_vld, uart_tx_busy;
 logic  [7:0] uart_tx_data, uart_rx_data;
@@ -78,43 +85,65 @@ eth eth (   .clk        ( clk        ),
             .eth_rx_err ( eth_rx_err ),
             .eth_crs_dv ( eth_crs_dv ) );
 
-arp_machine arp_machine( .clk       ( clk       ),
-                         .reset     ( ~resetn   ),
+arp_machine arp_machine( .clk       ( clk          ),
+                         .reset     ( ~resetn      ),
+
+                         .count_arp ( count_arp    ),
 
                      // MAC RX side
-                         .rx_vld    ( rx_vld    ),
-                         .rx_last   ( rx_last   ),
-                         .rx_err    ( rx_err    ),
-                         .rx_crc_ok ( rx_crc_ok ),
-                         .rx_busy   ( rx_busy   ),
-                         .rx_addr   ( rx_addr   ),
-                         .rx_data   ( rx_data   ),
+                         .rx_vld    ( rx_vld       ),
+                         .rx_last   ( rx_last      ),
+                         .rx_err    ( rx_err       ),
+                         .rx_crc_ok ( rx_crc_ok    ),
+                         .rx_busy   ( rx_busy      ),
+                         .rx_addr   ( rx_addr      ),
+                         .rx_data   ( rx_data      ),
 
-                         .count_arp ( count_arp ),
+                         .tx_req    ( arp_tx_req   ),
+                         .tx_count  ( arp_tx_count ),
+                         .tx_grant  ( arp_tx_grant ),
+
                      // MAC TX side
-                         .tx_vld    ( tx_vld   ),
-                         .tx_count  ( tx_count ),
-                         .tx_addr   ( tx_addr  ),
-                         .tx_adv    ( tx_adv   ),
-                         .tx_busy   ( tx_busy  ),
-                         .tx_last   ( tx_last  ),
-                         .tx_data   ( tx_data  ) );
+                         .tx_addr   ( tx_addr      ),
+                         .tx_adv    ( tx_adv       ),
+                         .tx_last   ( tx_last      ),
+                         .tx_data   ( arp_tx_data  ) );
 
 
-udp_machine udp_machine( .clk       ( clk       ),
-                         .reset     ( ~resetn   ),
+udp_rx_machine udp_rx_machine( .clk       ( clk       ),
+                            .reset     ( ~resetn   ),
 
-                     // MAC RX side
-                         .rx_vld    ( rx_vld    ),
-                         .rx_last   ( rx_last   ),
-                         .rx_err    ( rx_err    ),
-                         .rx_crc_ok ( rx_crc_ok ),
-                         .rx_busy   ( rx_busy   ),
-                         .rx_addr   ( rx_addr   ),
-                         .rx_data   ( rx_data   ),
+                        // MAC RX side
+                            .rx_vld    ( rx_vld    ),
+                            .rx_last   ( rx_last   ),
+                            .rx_err    ( rx_err    ),
+                            .rx_crc_ok ( rx_crc_ok ),
+                            .rx_busy   ( rx_busy   ),
+                            .rx_addr   ( rx_addr   ),
+                            .rx_data   ( rx_data   ),
+   
+                            .rx_udp_dvld ( rx_udp_dvld ),
+                            .rx_udp_data ( rx_udp_data ) );
 
-                         .rx_udp_dvld ( rx_udp_dvld ),
-                         .rx_udp_data ( rx_udp_data ) );
+
+udp_tx_machine udp_tx_machine( .clk         ( clk          ),
+                               .reset       ( ~resetn      ),
+
+                           // ARB Side
+                               .tx_req      ( udp_tx_req   ),
+                               .tx_count    ( udp_tx_count ),
+                               .tx_grant    ( udp_tx_grant ),
+
+                           // MAC TX side
+                               .tx_addr     ( tx_addr      ),
+                               .tx_adv      ( tx_adv       ),
+                               .tx_last     ( tx_last      ),
+                               .tx_data     ( udp_tx_data  ),
+
+                               .tx_udp_go   ( btn_ok_deb   ),
+                               .tx_udp_dvld ( btn_ok_deb   ),
+                               .tx_udp_data ( 32'h90ABCDEF ));
+
 
 bin2char  bin2char( .clk       ( clk          ),
                     .reset     ( ~resetn      ),
@@ -149,6 +178,36 @@ uart uart(  .clk     ( clk          ),
             .rx      ( uart_rx      ),
             .tx      ( uart_tx      ) );
 
+
+btn_debounce btn_debounce( .clk    ( clk        ),
+                           .reset  ( ~resetn    ),
+                           .btn    ( btn_ok     ),
+                           .btn_db ( btn_ok_deb ) );
+
+// fixed TX priorities:
+
+always_comb
+   if(arp_tx_req) begin
+      tx_vld       = ~tx_busy;
+      tx_count     = arp_tx_count;
+      arp_tx_grant = ~tx_busy;
+      udp_tx_grant = 1'b0;
+   end
+   else if(udp_tx_req) begin
+      tx_vld       = ~tx_busy;
+      tx_count     = udp_tx_count;
+      arp_tx_grant = 1'b0;
+      udp_tx_grant = ~tx_busy;
+   end
+   else begin
+      tx_vld       = 1'b0;
+      tx_count     = '0;
+      arp_tx_grant = 1'b0;
+      udp_tx_grant = 1'b0;
+   end
+
+
+assign tx_data = udp_tx_data | arp_tx_data;
 
 
 logic [7:0] uart_rx_char_a, uart_rx_char_b;
@@ -200,7 +259,7 @@ seg7 seg7(  .clk   ( clk                  ),
             .ca    ( seg7_ca              ) );
 
 
-assign leds = {uart_rx_char_b, uart_rx_char_a};
+assign leds = {uart_rx_char_b, uart_rx_char_a} | {15'd0, tx_busy};
 
 assign uart_cts = 1'b1;
 

@@ -2,12 +2,14 @@ read_verilog -sv ../toplevel/toplevel.sv
 read_verilog -sv ../uart/uart.sv
 read_verilog -sv ../eth/eth.sv
 read_verilog -sv ../eth/arp_machine.sv
-read_verilog -sv ../eth/udp_machine.sv
+read_verilog -sv ../eth/udp_tx_machine.sv
+read_verilog -sv ../eth/udp_rx_machine.sv
 read_verilog -sv ../eth/eth_rx_fcs.sv
 read_verilog -sv ../eth/eth_tx_fcs.sv
 read_verilog -sv ../util/bin2char.sv
 read_verilog -sv ../util/minififo.sv
 read_verilog -sv ../util/seg7.sv
+read_verilog -sv ../util/btn_debounce.sv
 
 synth_design  -top toplevel -part xc7a100tcsg324-1
 create_clock -name clk -period 10 [get_ports clk]
@@ -17,6 +19,7 @@ set_property -dict { PACKAGE_PIN E3    IOSTANDARD LVCMOS33 } [get_ports clk]
 set_property -dict { PACKAGE_PIN C12   IOSTANDARD LVCMOS33 } [get_ports resetn];
 
 set_property -dict { PACKAGE_PIN J15   IOSTANDARD LVCMOS33 } [get_ports sw]
+set_property -dict { PACKAGE_PIN N17   IOSTANDARD LVCMOS33 } [get_ports btn_ok]
 
 set_property -dict { PACKAGE_PIN T10   IOSTANDARD LVCMOS33 } [get_ports  seg7_ca[7] ];
 set_property -dict { PACKAGE_PIN R10   IOSTANDARD LVCMOS33 } [get_ports  seg7_ca[6] ];

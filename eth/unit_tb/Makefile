@@ -3,7 +3,8 @@ top:
 	vlog ../eth_tx_fcs.sv
 	vlog ../eth_rx_fcs.sv
 	vlog ../arp_machine.sv
-	vlog ../udp_machine.sv
+	vlog ../udp_rx_machine.sv
+	vlog ../udp_tx_machine.sv
 	vlog ../../util/miniram.sv
 	vlog ../eth.sv
 	vsim work.eth_top_tb -c -do "log -r /*; run -all"

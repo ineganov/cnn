@@ -1,17 +1,17 @@
-module udp_machine ( input        clk,
-                     input        reset,
+module udp_rx_machine ( input         clk,
+                        input         reset,
 
-                     // MAC RX side
-                     input        rx_vld,
-                     input        rx_last,
-                     input        rx_err,
-                     input        rx_crc_ok,
-                     input        rx_busy,
-                     input [10:0] rx_addr,
-                     input  [7:0] rx_data,
-
-                     output        rx_udp_dvld,
-                     output [31:0] rx_udp_data );
+                        // MAC RX side
+                        input         rx_vld,
+                        input         rx_last,
+                        input         rx_err,
+                        input         rx_crc_ok,
+                        input         rx_busy,
+                        input  [10:0] rx_addr,
+                        input   [7:0] rx_data,
+   
+                        output        rx_udp_dvld,
+                        output [31:0] rx_udp_data );
 
 // UDP:
 //                                          LEN_ _ID_ FLG_ TTL PROT  CHK_  SenderIP  Dest__IP SPort DPort  Len_  Chk_  Data______

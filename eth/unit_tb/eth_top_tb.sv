@@ -4,6 +4,12 @@ module eth_top_tb;
 logic        clk = 0;
 logic        reset = 1;
 
+logic        arp_tx_req,   arp_tx_grant;
+logic        udp_tx_req,   udp_tx_grant;
+logic [10:0] udp_tx_count, arp_tx_count;
+logic  [7:0] udp_tx_data,  arp_tx_data;
+
+logic        udp_tx_go;
 
 logic        tx_vld;
 logic        tx_adv;
@@ -87,6 +93,7 @@ initial begin
    eth_rx_err = 0;
    eth_rxd = 2'b00;
    eth_crs_dv = 0;
+   udp_tx_go = 0;
    #20ns;
    @(posedge clk) reset = 0;
 
@@ -106,6 +113,12 @@ initial begin
    
    #100ns;
    @(negedge tx_busy) #100ns;
+
+   @(posedge clk) udp_tx_go = 1;
+   @(posedge clk) udp_tx_go = 0;
+
+   @(negedge tx_busy) #100ns;
+
 
    $finish;
 end
@@ -153,43 +166,89 @@ always@(posedge clk)
 
 
 
-arp_machine arp_machine( .clk       ( clk       ),
-                         .reset     ( reset     ),
+arp_machine arp_machine( .clk       ( clk          ),
+                         .reset     ( reset        ),
+
+                         .count_arp ( count_arp    ),
 
                      // MAC RX side
-                         .rx_vld    ( rx_vld    ),
-                         .rx_last   ( rx_last   ),
-                         .rx_err    ( rx_err    ),
-                         .rx_crc_ok ( rx_crc_ok ),
-                         .rx_busy   ( rx_busy   ),
-                         .rx_addr   ( rx_addr   ),
-                         .rx_data   ( rx_data   ),
+                         .rx_vld    ( rx_vld       ),
+                         .rx_last   ( rx_last      ),
+                         .rx_err    ( rx_err       ),
+                         .rx_crc_ok ( rx_crc_ok    ),
+                         .rx_busy   ( rx_busy      ),
+                         .rx_addr   ( rx_addr      ),
+                         .rx_data   ( rx_data      ),
 
-                         .count_arp ( count_arp ),
+                     // ARB Side
+                         .tx_req    ( arp_tx_req   ),
+                         .tx_count  ( arp_tx_count ),
+                         .tx_grant  ( arp_tx_grant ),
 
                      // MAC TX side
-                         .tx_vld    ( tx_vld   ),
-                         .tx_count  ( tx_count ),
-                         .tx_addr   ( tx_addr  ),
-                         .tx_adv    ( tx_adv   ),
-                         .tx_busy   ( tx_busy  ),
-                         .tx_last   ( tx_last  ),
-                         .tx_data   ( tx_data  ) );
+                         .tx_addr   ( tx_addr      ),
+                         .tx_adv    ( tx_adv       ),
+                         .tx_last   ( tx_last      ),
+                         .tx_data   ( arp_tx_data  ) );
 
-udp_machine udp_machine( .clk         ( clk         ),
-                         .reset       ( reset       ),
 
-                     // MAC RX side
-                         .rx_vld      ( rx_vld      ),
-                         .rx_last     ( rx_last     ),
-                         .rx_err      ( rx_err      ),
-                         .rx_crc_ok   ( rx_crc_ok   ),
-                         .rx_busy     ( rx_busy     ),
-                         .rx_addr     ( rx_addr     ),
-                         .rx_data     ( rx_data     ),
+udp_tx_machine udp_tx_machine( .clk         ( clk          ),
+                               .reset       ( reset        ),
 
-                         .rx_udp_dvld ( rx_udp_dvld ),
-                         .rx_udp_data ( rx_udp_data ) );
+                           // ARB Side
+                               .tx_req      ( udp_tx_req   ),
+                               .tx_count    ( udp_tx_count ),
+                               .tx_grant    ( udp_tx_grant ),
+
+                           // MAC TX side
+                               .tx_addr     ( tx_addr      ),
+                               .tx_adv      ( tx_adv       ),
+                               .tx_last     ( tx_last      ),
+                               .tx_data     ( udp_tx_data  ),
+
+                               .tx_udp_go   ( udp_tx_go    ),
+                               .tx_udp_dvld ( udp_tx_go    ),
+                               .tx_udp_data ( 32'h90ABCDEF ));
+
+
+udp_rx_machine udp_rx_machine( .clk         ( clk         ),
+                               .reset       ( reset       ),
+
+                           // MAC RX side
+                               .rx_vld      ( rx_vld      ),
+                               .rx_last     ( rx_last     ),
+                               .rx_err      ( rx_err      ),
+                               .rx_crc_ok   ( rx_crc_ok   ),
+                               .rx_busy     ( rx_busy     ),
+                               .rx_addr     ( rx_addr     ),
+                               .rx_data     ( rx_data     ),
+      
+                               .rx_udp_dvld ( rx_udp_dvld ),
+                               .rx_udp_data ( rx_udp_data ) );
+
+// fixed TX priorities:
+
+always_comb
+   if(arp_tx_req) begin
+      tx_vld       = 1'b1;
+      tx_count     = arp_tx_count;
+      arp_tx_grant = ~tx_busy;
+      udp_tx_grant = 1'b0;
+   end
+   else if(udp_tx_req) begin
+      tx_vld       = 1'b1;
+      tx_count     = udp_tx_count;
+      arp_tx_grant = 1'b0;
+      udp_tx_grant = ~tx_busy;
+   end
+   else begin
+      tx_vld       = 1'b0;
+      tx_count     = '0;
+      arp_tx_grant = 1'b0;
+      udp_tx_grant = 1'b0;
+   end
+
+assign tx_data = udp_tx_data | arp_tx_data;
 
 // -------------------------------------------------//
 

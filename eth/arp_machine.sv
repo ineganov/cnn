@@ -1,6 +1,8 @@
 module arp_machine ( input        clk,
                      input        reset,
 
+                     output       count_arp,
+
                      // MAC RX side
                      input        rx_vld,
                      input        rx_last,
@@ -10,14 +12,14 @@ module arp_machine ( input        clk,
                      input [10:0] rx_addr,
                      input  [7:0] rx_data,
 
-                     output       count_arp,
+                     // ARB Side
+                     output        tx_req,
+                     output [10:0] tx_count,
+                     input         tx_grant,
 
                      // MAC TX side
-                     output        tx_vld,
-                     output [10:0] tx_count,
                      input  [10:0] tx_addr,
                      input         tx_adv,
-                     input         tx_busy,
                      input         tx_last,
                      output  [7:0] tx_data );
 
@@ -51,7 +53,7 @@ always_ff@(posedge clk)
 
 assign arp_nextst[ARP_ST_CHECK] = arp_state[ARP_ST_IDLE ] & rx_busy;
 assign arp_nextst[ARP_ST_ARB  ] = arp_state[ARP_ST_CHECK] & rx_vld & rx_last & rx_crc_ok & ~rx_err & is_arp;
-assign arp_nextst[ARP_ST_SEND ] = arp_state[ARP_ST_ARB  ] & ~tx_busy;
+assign arp_nextst[ARP_ST_SEND ] = arp_state[ARP_ST_ARB  ] & tx_grant;
 assign arp_nextst[ARP_ST_IDLE ] = (arp_state[ARP_ST_SEND ] & tx_last) |
                                   (arp_state[ARP_ST_CHECK] & rx_vld & rx_last & (~rx_crc_ok  | rx_err | ~is_arp));
 
@@ -174,9 +176,9 @@ always_comb
       default: tx_data_n = 8'h00;
    endcase
 
-assign tx_vld   = arp_state[ARP_ST_ARB];
-assign tx_count = 11'd60;
-assign tx_data  = tx_data_q;
+assign tx_req   = arp_state[ARP_ST_ARB];
+assign tx_count = {11{arp_state[ARP_ST_ARB]}} & 11'd60;
+assign tx_data  = {8{arp_state[ARP_ST_SEND]}} & tx_data_q;
 
 assign count_arp = arp_nextst[ARP_ST_ARB  ];
 
